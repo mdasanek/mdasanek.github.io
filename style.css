@@ -1,0 +1,64 @@
+/* Main Stylesheet */
+
+body {
+  font-family: 'Neue Haas Unica W1G', sans-serif;
+  line-height: 1.2;
+  font-size: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+p {
+  margin: 0;
+  padding: 0;
+}
+
+video {
+  width: 100%;
+}
+
+.bigger {
+  font-size: 24px;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  gap: 4px;
+  margin-top: 2rem;
+  margin-bottom: 4rem;
+}
+
+.header div {
+  padding-left: 4px;
+  padding-right: 32px;
+}
+
+img {
+  width: 100%;
+}
+
+.gallery {
+  column-count: 5;
+  column-gap: 4px;
+  margin: 0;
+  padding: 4px;
+}
+
+.gallery img {
+  width: 100%;
+  margin-bottom: 2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header {
+      grid-template-columns: 1fr;
+      padding: 10px;
+  }
+
+  .gallery {
+      column-count: 2;
+      padding: 0;
+  }
+}
