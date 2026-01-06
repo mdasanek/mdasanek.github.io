@@ -181,10 +181,11 @@
                             }
                         }, 0);
                     } else {
-                const img = document.createElement('img');
-                img.src = item.src;
-                img.alt = item.caption;
-                div.appendChild(img);
+                        const img = document.createElement('img');
+                        img.loading = 'lazy'; // Lazy loading для изображений ниже fold
+                        img.src = item.src;
+                        img.alt = item.caption;
+                        div.appendChild(img);
                         
                         // Проверяем, не загружено ли уже изображение из кеша
                         // Используем setTimeout, чтобы дать браузеру время установить complete
@@ -229,11 +230,12 @@
                                 }, { once: true });
                             }
                         }, 0);
-            } else {
-                const img = document.createElement('img');
-                img.src = item.src;
-                img.alt = '';
-                gallery.appendChild(img);
+                    } else {
+                        const img = document.createElement('img');
+                        img.loading = 'lazy'; // Lazy loading для изображений ниже fold
+                        img.src = item.src;
+                        img.alt = '';
+                        gallery.appendChild(img);
                         
                         // Проверяем, не загружено ли уже изображение из кеша
                         // Используем setTimeout, чтобы дать браузеру время установить complete
@@ -252,9 +254,10 @@
                 }
             });
             
-            // Ждем загрузки всех изображений с таймаутом
+            // Показываем сайт после загрузки первых изображений или через 2 секунды
             await new Promise(resolve => {
-                const maxWaitTime = 30000; // 30 секунд максимум
+                const maxWaitTime = 2000; // 2 секунды максимум ожидания
+                const minItemsToLoad = 20; // Минимум изображений для показа
                 const startTime = Date.now();
                 let lastCount = 0;
                 let stuckCount = 0;
@@ -270,22 +273,24 @@
                         lastCount = loadedCount;
                     }
                     
-                    // Если застряли на 5 секунд, продолжаем
-                    if (stuckCount * 100 >= 5000) {
-                        console.warn(`Stuck at ${loadedCount}/${totalItems} items. Proceeding anyway.`);
+                    // Показываем сайт если:
+                    // 1. Загружено минимум изображений И прошло больше 0.5 секунды
+                    // 2. Или прошло 2 секунды
+                    // 3. Или застряли на 1 секунду
+                    if ((loadedCount >= minItemsToLoad && elapsed >= 500) || 
+                        elapsed >= maxWaitTime || 
+                        stuckCount * 100 >= 1000) {
                         resolve();
                         return;
                     }
                     
+                    // Если все загрузилось раньше - тоже показываем
                     if (loadedCount >= totalItems) {
                         resolve();
-                    } else if (elapsed >= maxWaitTime) {
-                        // Таймаут - продолжаем даже если не все загрузилось
-                        console.warn(`Timeout waiting for media to load (${loadedCount}/${totalItems}). Proceeding anyway.`);
-                        resolve();
-                    } else {
-                        setTimeout(checkComplete, 100);
+                        return;
                     }
+                    
+                    setTimeout(checkComplete, 50); // Проверяем чаще
                 };
                 checkComplete();
             });
