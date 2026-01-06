@@ -1,0 +1,1 @@
+Hi, my name is Sasha Korshenyuk and I'm a graphic designer. This site is a curated snapshots, featuring selected projects, concepts, and educational experiments. Full case studies are available on my Behance profile (behance.net/korshenyk)
