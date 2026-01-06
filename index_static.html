@@ -466,9 +466,6 @@
 
     <script>
         async function loadGallery() {
-        const gallery = document.getElementById('gallery');
-        const preloaderPercent = document.getElementById('preloader-percent');
-        
         // В статичной версии все уже загружено, просто ждем немного для стабилизации колонок
         await new Promise(resolve => {
             requestAnimationFrame(() => {
@@ -500,113 +497,6 @@
         }
     }
     
-    function setupInfiniteScroll() {
-        const headerSection = document.querySelector('.header');
-        const gallerySection = document.getElementById('gallery');
-        const headerImg = document.querySelector('img[src="w/mdasanek_header.svg"]');
-        
-        if (!headerSection || !gallerySection || !headerImg) return;
-        
-        const maxCopies = 3; // Максимум 3 копии контента
-        let copyCount = 0;
-        const copies = []; // Храним ссылки на копии для удаления
-        
-        // Создаем маркер в конце страницы
-        const sentinel = document.createElement('div');
-        sentinel.id = 'scroll-sentinel';
-        sentinel.style.height = '1px';
-        document.body.appendChild(sentinel);
-        
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    // Удаляем старые копии, если их больше maxCopies
-                    if (copyCount >= maxCopies) {
-                        const oldestCopy = copies.shift();
-                        if (oldestCopy) {
-                            oldestCopy.headerImg.remove();
-                            oldestCopy.header.remove();
-                            oldestCopy.gallery.remove();
-                            copyCount--;
-                        }
-                    }
-                    
-                    // Когда дошли до конца, дублируем весь контент
-                    const newHeaderImg = headerImg.cloneNode(true);
-                    const newHeader = headerSection.cloneNode(true);
-                    const newGallery = gallerySection.cloneNode(true);
-                    
-                    // Вставляем перед sentinel
-                    document.body.insertBefore(newHeaderImg, sentinel);
-                    document.body.insertBefore(newHeader, sentinel);
-                    document.body.insertBefore(newGallery, sentinel);
-                    
-                    // Обновляем ID для новой галереи
-                    newGallery.id = 'gallery-' + Date.now();
-                    
-                    // Настраиваем модальное окно для новой галереи
-                    setupModalForGallery(newGallery);
-                    
-                    // Сохраняем ссылку на копию
-                    copies.push({
-                        headerImg: newHeaderImg,
-                        header: newHeader,
-                        gallery: newGallery
-                    });
-                    copyCount++;
-                }
-            });
-        }, {
-            rootMargin: '500px' // Начинаем дублирование за 500px до конца
-        });
-        
-        observer.observe(sentinel);
-    }
-    
-    function setupModalForGallery(galleryElement) {
-        const modal = document.getElementById('modal');
-        const modalImg = document.getElementById('modal-img');
-        const modalVideo = document.getElementById('modal-video');
-        const modalCaption = document.getElementById('modal-caption');
-        
-        galleryElement.addEventListener('click', function(e) {
-            let target = e.target;
-            let src = '';
-            let caption = '';
-            let isVideo = false;
-            
-            if (target.tagName === 'IMG' && target.parentElement.classList.contains('block')) {
-                src = target.src;
-                caption = target.parentElement.querySelector('p')?.textContent || '';
-            } else if (target.tagName === 'IMG') {
-                src = target.src;
-                caption = '';
-            } else if (target.tagName === 'VIDEO' && target.parentElement.classList.contains('block')) {
-                src = target.src;
-                caption = target.parentElement.querySelector('p')?.textContent || '';
-                isVideo = true;
-            } else if (target.tagName === 'VIDEO') {
-                src = target.src;
-                caption = '';
-                isVideo = true;
-            } else {
-                return;
-            }
-            
-            if (isVideo) {
-                modalImg.style.display = 'none';
-                modalVideo.style.display = 'block';
-                modalVideo.src = src;
-                modalVideo.load();
-                } else {
-                modalVideo.style.display = 'none';
-                modalImg.style.display = 'block';
-                modalImg.src = src;
-            }
-            modalCaption.textContent = caption;
-            modal.style.display = 'flex';
-        });
-    }
 
     function addModalView() {
         const gallery = document.getElementById('gallery');
@@ -717,7 +607,6 @@
         
         // Эти функции не зависят от GIF
         addModalView();
-        setupInfiniteScroll();
     });
     </script>
 </body>

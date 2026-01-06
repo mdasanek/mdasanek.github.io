@@ -142,15 +142,66 @@
                 return;
             }
             
-            const updateProgress = () => {
-                loadedCount++;
-                const percent = Math.round((loadedCount / totalItems) * 100);
+            // Определяем количество приоритетных изображений (первые, которые загружаем без lazy)
+            const PRIORITY_COUNT = Math.min(40, totalItems);
+            const startTime = Date.now();
+            const MIN_DISPLAY_TIME = 1500; // Минимум 1.5 секунды показа прелоадера
+            
+            // Счетчик для отслеживания загруженных приоритетных изображений
+            let priorityLoaded = 0;
+            
+            const updateProgress = (isPriority = false) => {
+                if (isPriority) {
+                    priorityLoaded++;
+                } else {
+                    loadedCount++;
+                }
+                
+                // Вычисляем процент: реальный прогресс приоритетных + симуляция остальных
+                const priorityPercent = (priorityLoaded / PRIORITY_COUNT) * 60; // Первые 40 дают 60%
+                const remainingPercent = Math.min((loadedCount / Math.max(1, totalItems - PRIORITY_COUNT)) * 40, 40); // Остальные дают 40%
+                const totalPercent = Math.min(Math.round(priorityPercent + remainingPercent), 100);
+                
                 if (preloaderPercent) {
-                    preloaderPercent.textContent = percent;
+                    preloaderPercent.textContent = totalPercent;
                 }
             };
             
-            galleryItems.forEach(item => {
+            // Плавное доведение счетчика до 100% если нужно
+            const ensureProgressTo100 = () => {
+                const elapsed = Date.now() - startTime;
+                const currentPercent = parseInt(preloaderPercent?.textContent || '0');
+                
+                // Если прошло 80% минимального времени и счетчик еще не 100, плавно доводим
+                if (elapsed >= MIN_DISPLAY_TIME * 0.8 && currentPercent < 100) {
+                    const targetPercent = Math.min(
+                        Math.round((priorityLoaded / PRIORITY_COUNT) * 60 + (loadedCount / Math.max(1, totalItems - PRIORITY_COUNT)) * 40),
+                        100
+                    );
+                    
+                    if (currentPercent < targetPercent) {
+                        if (preloaderPercent) {
+                            preloaderPercent.textContent = Math.min(currentPercent + 1, targetPercent);
+                        }
+                    } else if (currentPercent < 100) {
+                        // Если реальный прогресс уже достигнут, но счетчик не 100, доводим до 100
+                        if (preloaderPercent) {
+                            preloaderPercent.textContent = Math.min(currentPercent + 1, 100);
+                        }
+                    }
+                }
+                
+                // Продолжаем проверку пока не прошло минимальное время
+                if (elapsed < MIN_DISPLAY_TIME) {
+                    setTimeout(ensureProgressTo100, 50);
+                }
+            };
+            
+            // Запускаем проверку прогресса
+            setTimeout(ensureProgressTo100, MIN_DISPLAY_TIME * 0.8);
+            
+            galleryItems.forEach((item, index) => {
+                const isPriority = index < PRIORITY_COUNT;
                 const isVideo = item.type === 'video' || /\.(mp4|webm)$/i.test(item.src);
                 
             if (item.caption && item.caption.trim()) {
@@ -171,18 +222,23 @@
                         // Проверяем готовность видео
                         setTimeout(() => {
                             if (video.readyState >= 2) { // HAVE_CURRENT_DATA
-                                updateProgress();
+                                updateProgress(isPriority);
                             } else {
-                                video.addEventListener('loadeddata', updateProgress, { once: true });
+                                video.addEventListener('loadeddata', () => updateProgress(isPriority), { once: true });
                                 video.addEventListener('error', () => {
                                     console.warn('Failed to load video:', item.src);
-                                    updateProgress();
+                                    updateProgress(isPriority);
                                 }, { once: true });
                             }
                         }, 0);
                     } else {
                         const img = document.createElement('img');
-                        img.loading = 'lazy'; // Lazy loading для изображений ниже fold
+                        // Приоритетные изображения загружаем без lazy loading
+                        if (isPriority) {
+                            img.loading = 'eager';
+                        } else {
+                            img.loading = 'lazy';
+                        }
                         img.src = item.src;
                         img.alt = item.caption;
                         div.appendChild(img);
@@ -191,12 +247,12 @@
                         // Используем setTimeout, чтобы дать браузеру время установить complete
                         setTimeout(() => {
                             if (img.complete && img.naturalWidth !== 0) {
-                                updateProgress();
+                                updateProgress(isPriority);
                             } else {
-                                img.addEventListener('load', updateProgress, { once: true });
+                                img.addEventListener('load', () => updateProgress(isPriority), { once: true });
                                 img.addEventListener('error', () => {
                                     console.warn('Failed to load image:', item.src);
-                                    updateProgress();
+                                    updateProgress(isPriority);
                                 }, { once: true });
                             }
                         }, 0);
@@ -221,18 +277,23 @@
                         // Проверяем готовность видео
                         setTimeout(() => {
                             if (video.readyState >= 2) { // HAVE_CURRENT_DATA
-                                updateProgress();
+                                updateProgress(isPriority);
                             } else {
-                                video.addEventListener('loadeddata', updateProgress, { once: true });
+                                video.addEventListener('loadeddata', () => updateProgress(isPriority), { once: true });
                                 video.addEventListener('error', () => {
                                     console.warn('Failed to load video:', item.src);
-                                    updateProgress();
+                                    updateProgress(isPriority);
                                 }, { once: true });
                             }
                         }, 0);
                     } else {
                         const img = document.createElement('img');
-                        img.loading = 'lazy'; // Lazy loading для изображений ниже fold
+                        // Приоритетные изображения загружаем без lazy loading
+                        if (isPriority) {
+                            img.loading = 'eager';
+                        } else {
+                            img.loading = 'lazy';
+                        }
                         img.src = item.src;
                         img.alt = '';
                         gallery.appendChild(img);
@@ -241,12 +302,12 @@
                         // Используем setTimeout, чтобы дать браузеру время установить complete
                         setTimeout(() => {
                             if (img.complete && img.naturalWidth !== 0) {
-                                updateProgress();
+                                updateProgress(isPriority);
                             } else {
-                                img.addEventListener('load', updateProgress, { once: true });
+                                img.addEventListener('load', () => updateProgress(isPriority), { once: true });
                                 img.addEventListener('error', () => {
                                     console.warn('Failed to load image:', item.src);
-                                    updateProgress();
+                                    updateProgress(isPriority);
                                 }, { once: true });
                             }
                         }, 0);
@@ -254,43 +315,26 @@
                 }
             });
             
-            // Показываем сайт после загрузки первых изображений или через 2 секунды
+            // Показываем сайт после загрузки приоритетных изображений и минимум через 1.5 секунды
             await new Promise(resolve => {
-                const maxWaitTime = 2000; // 2 секунды максимум ожидания
-                const minItemsToLoad = 20; // Минимум изображений для показа
-                const startTime = Date.now();
-                let lastCount = 0;
-                let stuckCount = 0;
-                
                 const checkComplete = () => {
                     const elapsed = Date.now() - startTime;
                     
-                    // Проверяем, не застряли ли мы (счетчик не меняется)
-                    if (loadedCount === lastCount) {
-                        stuckCount++;
-                    } else {
-                        stuckCount = 0;
-                        lastCount = loadedCount;
+                    // Доводим счетчик до 100% перед закрытием
+                    if (preloaderPercent && parseInt(preloaderPercent.textContent) < 100) {
+                        preloaderPercent.textContent = '100';
                     }
                     
                     // Показываем сайт если:
-                    // 1. Загружено минимум изображений И прошло больше 0.5 секунды
-                    // 2. Или прошло 2 секунды
-                    // 3. Или застряли на 1 секунду
-                    if ((loadedCount >= minItemsToLoad && elapsed >= 500) || 
-                        elapsed >= maxWaitTime || 
-                        stuckCount * 100 >= 1000) {
+                    // 1. Загружены все приоритетные изображения И прошло минимум 1.5 секунды
+                    // 2. Или прошло больше 3 секунд (на случай проблем с загрузкой)
+                    if ((priorityLoaded >= PRIORITY_COUNT && elapsed >= MIN_DISPLAY_TIME) || 
+                        elapsed >= 3000) {
                         resolve();
                         return;
                     }
                     
-                    // Если все загрузилось раньше - тоже показываем
-                    if (loadedCount >= totalItems) {
-                        resolve();
-                        return;
-                    }
-                    
-                    setTimeout(checkComplete, 50); // Проверяем чаще
+                    setTimeout(checkComplete, 50); // Проверяем каждые 50мс
                 };
                 checkComplete();
             });
@@ -338,113 +382,6 @@
         }
     }
     
-    function setupInfiniteScroll() {
-        const headerSection = document.querySelector('.header');
-        const gallerySection = document.getElementById('gallery');
-        const headerImg = document.querySelector('img[src="w/mdasanek_header.svg"]');
-        
-        if (!headerSection || !gallerySection || !headerImg) return;
-        
-        const maxCopies = 3; // Максимум 3 копии контента
-        let copyCount = 0;
-        const copies = []; // Храним ссылки на копии для удаления
-        
-        // Создаем маркер в конце страницы
-        const sentinel = document.createElement('div');
-        sentinel.id = 'scroll-sentinel';
-        sentinel.style.height = '1px';
-        document.body.appendChild(sentinel);
-        
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    // Удаляем старые копии, если их больше maxCopies
-                    if (copyCount >= maxCopies) {
-                        const oldestCopy = copies.shift();
-                        if (oldestCopy) {
-                            oldestCopy.headerImg.remove();
-                            oldestCopy.header.remove();
-                            oldestCopy.gallery.remove();
-                            copyCount--;
-                        }
-                    }
-                    
-                    // Когда дошли до конца, дублируем весь контент
-                    const newHeaderImg = headerImg.cloneNode(true);
-                    const newHeader = headerSection.cloneNode(true);
-                    const newGallery = gallerySection.cloneNode(true);
-                    
-                    // Вставляем перед sentinel
-                    document.body.insertBefore(newHeaderImg, sentinel);
-                    document.body.insertBefore(newHeader, sentinel);
-                    document.body.insertBefore(newGallery, sentinel);
-                    
-                    // Обновляем ID для новой галереи
-                    newGallery.id = 'gallery-' + Date.now();
-                    
-                    // Настраиваем модальное окно для новой галереи
-                    setupModalForGallery(newGallery);
-                    
-                    // Сохраняем ссылку на копию
-                    copies.push({
-                        headerImg: newHeaderImg,
-                        header: newHeader,
-                        gallery: newGallery
-                    });
-                    copyCount++;
-                }
-            });
-        }, {
-            rootMargin: '500px' // Начинаем дублирование за 500px до конца
-        });
-        
-        observer.observe(sentinel);
-    }
-    
-    function setupModalForGallery(galleryElement) {
-        const modal = document.getElementById('modal');
-        const modalImg = document.getElementById('modal-img');
-        const modalVideo = document.getElementById('modal-video');
-        const modalCaption = document.getElementById('modal-caption');
-        
-        galleryElement.addEventListener('click', function(e) {
-            let target = e.target;
-            let src = '';
-            let caption = '';
-            let isVideo = false;
-            
-            if (target.tagName === 'IMG' && target.parentElement.classList.contains('block')) {
-                src = target.src;
-                caption = target.parentElement.querySelector('p')?.textContent || '';
-            } else if (target.tagName === 'IMG') {
-                src = target.src;
-                caption = '';
-            } else if (target.tagName === 'VIDEO' && target.parentElement.classList.contains('block')) {
-                src = target.src;
-                caption = target.parentElement.querySelector('p')?.textContent || '';
-                isVideo = true;
-            } else if (target.tagName === 'VIDEO') {
-                src = target.src;
-                caption = '';
-                isVideo = true;
-            } else {
-                return;
-            }
-            
-            if (isVideo) {
-                modalImg.style.display = 'none';
-                modalVideo.style.display = 'block';
-                modalVideo.src = src;
-                modalVideo.load();
-                } else {
-                modalVideo.style.display = 'none';
-                modalImg.style.display = 'block';
-                modalImg.src = src;
-            }
-            modalCaption.textContent = caption;
-            modal.style.display = 'flex';
-        });
-    }
 
     function addModalView() {
         const gallery = document.getElementById('gallery');
@@ -555,7 +492,6 @@
         
         // Эти функции не зависят от GIF
         addModalView();
-        setupInfiniteScroll();
     });
     </script>
 </body>

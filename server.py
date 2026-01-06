@@ -2,7 +2,7 @@
 """
 Flask сервер для локальной разработки и управления галереей
 """
-from flask import Flask, render_template_string, send_from_directory, request, jsonify, session, redirect, url_for
+from flask import Flask, send_from_directory, request, jsonify, session, redirect, url_for
 from werkzeug.utils import secure_filename
 from PIL import Image
 import io
@@ -199,7 +199,7 @@ def serve_static(filename):
     if filename in ['index.html', 'admin.html']:
         return send_from_directory('.', filename)
     # Разрешаем доступ только к статическим файлам
-    allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.pdf', '.ttf', '.mp4', '.webm', '.json', '.xml', '.css', '.js', '.gif'}
+    allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.pdf', '.ttf', '.mp4', '.webm', '.json', '.xml', '.css', '.js'}
     if any(filename.lower().endswith(ext) for ext in allowed_extensions):
         return send_from_directory('.', filename)
     return jsonify({'error': 'File not found'}), 404
