@@ -150,6 +150,45 @@
             // Счетчик для отслеживания загруженных приоритетных изображений
             let priorityLoaded = 0;
             
+            // Переменные для контроля скорости обновления счетчика
+            let displayedPercent = 0; // Текущий отображаемый процент
+            let targetPercent = 0; // Целевой процент (реальный прогресс)
+            let lastUpdateTime = Date.now();
+            let isAnimating = false; // Флаг для предотвращения множественных вызовов анимации
+            const MIN_UPDATE_INTERVAL = 30; // Минимальный интервал между обновлениями (мс)
+            const MAX_PERCENT_PER_UPDATE = 2; // Максимальное увеличение процента за одно обновление
+            
+            // Функция для плавного обновления счетчика
+            const animateProgress = () => {
+                const now = Date.now();
+                const elapsed = now - lastUpdateTime;
+                
+                if (elapsed >= MIN_UPDATE_INTERVAL && displayedPercent < targetPercent) {
+                    // Вычисляем, на сколько можно увеличить процент
+                    const maxIncrease = Math.min(
+                        MAX_PERCENT_PER_UPDATE,
+                        targetPercent - displayedPercent
+                    );
+                    
+                    // Увеличиваем с учетом времени (плавная анимация)
+                    const increase = Math.min(maxIncrease, Math.ceil((targetPercent - displayedPercent) * 0.3));
+                    displayedPercent = Math.min(displayedPercent + increase, targetPercent, 100);
+                    
+                    if (preloaderPercent) {
+                        preloaderPercent.textContent = Math.round(displayedPercent);
+                    }
+                    
+                    lastUpdateTime = now;
+                }
+                
+                // Продолжаем анимацию, если есть разница между отображаемым и целевым процентом
+                if (displayedPercent < targetPercent) {
+                    requestAnimationFrame(animateProgress);
+                } else {
+                    isAnimating = false;
+                }
+            };
+            
             const updateProgress = (isPriority = false) => {
                 if (isPriority) {
                     priorityLoaded++;
@@ -160,34 +199,37 @@
                 // Вычисляем процент: реальный прогресс приоритетных + симуляция остальных
                 const priorityPercent = (priorityLoaded / PRIORITY_COUNT) * 60; // Первые 40 дают 60%
                 const remainingPercent = Math.min((loadedCount / Math.max(1, totalItems - PRIORITY_COUNT)) * 40, 40); // Остальные дают 40%
-                const totalPercent = Math.min(Math.round(priorityPercent + remainingPercent), 100);
+                const calculatedPercent = Math.min(Math.round(priorityPercent + remainingPercent), 100);
                 
-                if (preloaderPercent) {
-                    preloaderPercent.textContent = totalPercent;
+                // Обновляем целевой процент (реальный прогресс)
+                targetPercent = calculatedPercent;
+                
+                // Запускаем анимацию, если она еще не запущена
+                if (displayedPercent < targetPercent && !isAnimating) {
+                    isAnimating = true;
+                    requestAnimationFrame(animateProgress);
                 }
             };
             
             // Плавное доведение счетчика до 100% если нужно
             const ensureProgressTo100 = () => {
                 const elapsed = Date.now() - startTime;
-                const currentPercent = parseInt(preloaderPercent?.textContent || '0');
                 
                 // Если прошло 80% минимального времени и счетчик еще не 100, плавно доводим
-                if (elapsed >= MIN_DISPLAY_TIME * 0.8 && currentPercent < 100) {
-                    const targetPercent = Math.min(
+                if (elapsed >= MIN_DISPLAY_TIME * 0.8 && displayedPercent < 100) {
+                    // Вычисляем реальный прогресс
+                    const realProgress = Math.min(
                         Math.round((priorityLoaded / PRIORITY_COUNT) * 60 + (loadedCount / Math.max(1, totalItems - PRIORITY_COUNT)) * 40),
                         100
                     );
                     
-                    if (currentPercent < targetPercent) {
-                        if (preloaderPercent) {
-                            preloaderPercent.textContent = Math.min(currentPercent + 1, targetPercent);
-                        }
-                    } else if (currentPercent < 100) {
-                        // Если реальный прогресс уже достигнут, но счетчик не 100, доводим до 100
-                        if (preloaderPercent) {
-                            preloaderPercent.textContent = Math.min(currentPercent + 1, 100);
-                        }
+                    // Обновляем целевой процент
+                    targetPercent = Math.max(targetPercent, realProgress, 95); // Минимум 95% если прошло 80% времени
+                    
+                    // Запускаем анимацию, если она еще не запущена
+                    if (displayedPercent < targetPercent && !isAnimating) {
+                        isAnimating = true;
+                        requestAnimationFrame(animateProgress);
                     }
                 }
                 
@@ -320,16 +362,24 @@
                 const checkComplete = () => {
                     const elapsed = Date.now() - startTime;
                     
-                    // Доводим счетчик до 100% перед закрытием
-                    if (preloaderPercent && parseInt(preloaderPercent.textContent) < 100) {
-                        preloaderPercent.textContent = '100';
+                    // Доводим счетчик до 100% перед закрытием (плавно)
+                    if (displayedPercent < 100) {
+                        targetPercent = 100;
+                        if (!isAnimating) {
+                            isAnimating = true;
+                            requestAnimationFrame(animateProgress);
+                        }
                     }
                     
                     // Показываем сайт если:
-                    // 1. Загружены все приоритетные изображения И прошло минимум 1.5 секунды
+                    // 1. Загружены все приоритетные изображения И прошло минимум 1.5 секунды И счетчик достиг хотя бы 95%
                     // 2. Или прошло больше 3 секунд (на случай проблем с загрузкой)
-                    if ((priorityLoaded >= PRIORITY_COUNT && elapsed >= MIN_DISPLAY_TIME) || 
+                    if ((priorityLoaded >= PRIORITY_COUNT && elapsed >= MIN_DISPLAY_TIME && displayedPercent >= 95) || 
                         elapsed >= 3000) {
+                        // Финально устанавливаем 100% перед закрытием
+                        if (preloaderPercent) {
+                            preloaderPercent.textContent = '100';
+                        }
                         resolve();
                         return;
                     }
