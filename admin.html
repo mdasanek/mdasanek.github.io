@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin — Gallery Upload</title>
+    <style>
+        body { background: #111; color: #fff; font-family: sans-serif; }
+        form { margin: 40px auto; max-width: 400px; background: #222; padding: 24px; border-radius: 8px; }
+        input, textarea, button { width: 100%; margin-bottom: 12px; padding: 8px; border-radius: 4px; border: none; }
+        button { background: #444; color: #fff; cursor: pointer; }
+        .msg { margin: 12px 0; }
+    </style>
+</head>
+<body>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <h2>Загрузка изображений и видео в галерею</h2>
+        <input type="file" id="fileInput" name="file" accept="image/*,video/mp4,video/webm" multiple required style="margin-bottom:8px;">
+        <div id="previews"></div>
+        <button type="submit">Загрузить</button>
+        <div class="msg" id="msg"></div>
+        <button type="button" id="generateBtn" style="width:100%;margin-top:12px;background:#555;">Сгенерировать статичный сайт</button>
+        <div class="msg" id="generateMsg"></div>
+        <a href="/logout" style="color:#aaa;display:block;margin-top:12px;">Выйти</a>
+    </form>
+
+    <div style="margin: 40px auto; max-width: 1000px; background: #222; padding: 24px; border-radius: 8px;">
+        <h2>Управление галереей</h2>
+        <p style="color:#aaa;font-size:12px;margin-bottom:12px;">Перетаскивайте изображения для изменения порядка. Нажмите на подпись для редактирования.</p>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button type="button" id="refreshBtn" style="flex:1;background:#555;color:#fff;padding:8px;border-radius:4px;border:none;cursor:pointer;">Обновить список</button>
+            <button type="button" id="shuffleBtn" style="flex:1;background:#444;color:#fff;padding:8px;border-radius:4px;border:none;cursor:pointer;">Перемешать все</button>
+            <button type="button" id="findDuplicatesBtn" style="flex:1;background:#664;color:#fff;padding:8px;border-radius:4px;border:none;cursor:pointer;">Найти дубликаты</button>
+        </div>
+        <div id="duplicatesInfo" style="margin-bottom:12px;padding:8px;background:#331;border-radius:4px;display:none;">
+            <p style="margin:0;color:#faa;font-size:12px;" id="duplicatesText"></p>
+        </div>
+        <button type="button" id="saveOrderBtn" style="width:100%;margin-bottom:12px;background:#333;color:#fff;padding:8px;border-radius:4px;border:none;cursor:pointer;display:none;">Сохранить порядок</button>
+        <div id="galleryList" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:12px;margin-top:20px;"></div>
+        <div class="msg" id="deleteMsg"></div>
+    </div>
+    <script>
+    const fileInput = document.getElementById('fileInput');
+    const previews = document.getElementById('previews');
+    let files = [];
+
+    fileInput.addEventListener('change', handleFiles);
+    // Drag & drop
+    fileInput.parentElement.addEventListener('dragover', e => { e.preventDefault(); fileInput.parentElement.style.background = '#222'; });
+    fileInput.parentElement.addEventListener('dragleave', e => { e.preventDefault(); fileInput.parentElement.style.background = ''; });
+    fileInput.parentElement.addEventListener('drop', e => {
+        e.preventDefault();
+        fileInput.parentElement.style.background = '';
+        fileInput.files = e.dataTransfer.files;
+        handleFiles();
+    });
+
+    function handleFiles() {
+        files = Array.from(fileInput.files);
+        previews.innerHTML = '';
+        files.forEach((file, i) => {
+            const div = document.createElement('div');
+            div.style = 'margin-bottom:8px; background:#181818; padding:8px; border-radius:4px; display:flex; align-items:center;';
+            
+            const isVideo = file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name);
+            
+            if (isVideo) {
+                const video = document.createElement('video');
+                video.style = 'width:48px;height:48px;object-fit:cover;margin-right:8px;border-radius:2px;';
+                video.src = URL.createObjectURL(file);
+                video.muted = true;
+                video.style.pointerEvents = 'none';
+                div.appendChild(video);
+            } else {
+                const img = document.createElement('img');
+                img.style = 'width:48px;height:48px;object-fit:cover;margin-right:8px;border-radius:2px;';
+                img.src = URL.createObjectURL(file);
+                div.appendChild(img);
+            }
+            
+            const label = document.createElement('input');
+            label.type = 'text';
+            label.placeholder = 'Подпись (необязательно)';
+            label.name = 'caption';
+            label.style = 'flex:1; margin-right:8px;';
+            div.appendChild(label);
+            previews.appendChild(div);
+        });
+    }
+
+    document.getElementById('uploadForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const data = new FormData();
+        files.forEach((file, i) => {
+            data.append('file', file);
+            const caption = previews.querySelectorAll('input[name="caption"]')[i]?.value || '';
+            data.append('caption', caption);
+        });
+        const msg = document.getElementById('msg');
+        msg.textContent = '';
+        try {
+            const res = await fetch('/upload', {
+                method: 'POST',
+                body: data,
+                credentials: 'same-origin'
+            });
+            const json = await res.json();
+            if (json.results && Array.isArray(json.results)) {
+                const ok = json.results.find(r => r.success);
+                if (ok) {
+                    msg.textContent = 'Успешно загружено!';
+                    form.reset();
+                    previews.innerHTML = '';
+                } else {
+                    msg.textContent = json.results[0]?.error || 'Ошибка загрузки';
+                }
+            } else if (json.success) {
+                msg.textContent = 'Успешно загружено!';
+                form.reset();
+                previews.innerHTML = '';
+            } else {
+                msg.textContent = json.error || 'Ошибка загрузки';
+            }
+        } catch (err) {
+            msg.textContent = 'Ошибка соединения';
+        }
+    };
+
+    document.getElementById('generateBtn').onclick = async function() {
+        const generateMsg = document.getElementById('generateMsg');
+        generateMsg.textContent = 'Генерация...';
+        try {
+            const res = await fetch('/generate-static', {
+                method: 'POST',
+                credentials: 'same-origin'
+            });
+            const json = await res.json();
+            if (json.success) {
+                generateMsg.textContent = '✓ ' + json.message;
+            } else {
+                generateMsg.textContent = '✗ ' + (json.error || 'Ошибка генерации');
+            }
+        } catch (err) {
+            generateMsg.textContent = '✗ Ошибка соединения';
+        }
+    };
+
+    let currentGallery = [];
+    let draggedElement = null;
+    let duplicateFiles = new Set();
+
+    async function loadGalleryList() {
+        const galleryList = document.getElementById('galleryList');
+        galleryList.innerHTML = 'Загрузка...';
+        try {
+            const res = await fetch('/gallery-list', {
+                credentials: 'same-origin'
+            });
+            const json = await res.json();
+            if (json.gallery) {
+                currentGallery = json.gallery;
+                renderGalleryList();
+            }
+        } catch (err) {
+            galleryList.innerHTML = '<p style="color:red">Ошибка загрузки</p>';
+        }
+    }
+
+    function renderGalleryList() {
+        const galleryList = document.getElementById('galleryList');
+        galleryList.innerHTML = '';
+        currentGallery.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.draggable = true;
+            div.dataset.src = item.src;
+            div.dataset.index = index;
+            const filename = item.src.split('/').pop();
+            const isDuplicate = duplicateFiles.has(filename);
+            div.style = `background:${isDuplicate ? '#331' : '#181818'};padding:8px;border-radius:4px;position:relative;cursor:move;border:${isDuplicate ? '2px solid #f44' : 'none'};`;
+            
+            // Обработчики drag & drop
+            div.addEventListener('dragstart', handleDragStart);
+            div.addEventListener('dragover', handleDragOver);
+            div.addEventListener('drop', handleDrop);
+            div.addEventListener('dragend', handleDragEnd);
+            
+            const isVideo = item.type === 'video' || /\.(mp4|webm)$/i.test(item.src);
+            
+            if (isVideo) {
+                const video = document.createElement('video');
+                video.src = '/' + item.src;
+                video.style = 'width:100%;height:auto;border-radius:2px;margin-bottom:4px;pointer-events:none;';
+                video.muted = true;
+                video.playsInline = true;
+                div.appendChild(video);
+            } else {
+                const img = document.createElement('img');
+                img.src = '/' + item.src;
+                img.style = 'width:100%;height:auto;border-radius:2px;margin-bottom:4px;pointer-events:none;';
+                img.alt = item.caption || '';
+                div.appendChild(img);
+            }
+            
+            // Название файла
+            const filenameP = document.createElement('p');
+            filenameP.textContent = filename;
+            filenameP.style = `font-size:9px;color:${isDuplicate ? '#faa' : '#666'};margin:0 0 4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:${isDuplicate ? 'bold' : 'normal'};`;
+            div.appendChild(filenameP);
+            
+            // Поле для редактирования подписи
+            const captionInput = document.createElement('input');
+            captionInput.type = 'text';
+            captionInput.value = item.caption || '';
+            captionInput.placeholder = 'Подпись (нажмите Enter для сохранения)';
+            captionInput.style = 'width:100%;padding:4px;font-size:10px;background:#0a0a0a;border:1px solid #333;border-radius:2px;color:#fff;margin-bottom:4px;box-sizing:border-box;';
+            captionInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    updateCaption(item.src, captionInput.value);
+                }
+            });
+            captionInput.addEventListener('blur', () => {
+                updateCaption(item.src, captionInput.value);
+            });
+            div.appendChild(captionInput);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '✕';
+            deleteBtn.style = 'position:absolute;top:4px;right:4px;background:rgba(255,0,0,0.8);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;z-index:10;';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteItem(item.src, index);
+            };
+            div.appendChild(deleteBtn);
+            
+            galleryList.appendChild(div);
+        });
+    }
+
+    function handleDragStart(e) {
+        draggedElement = this;
+        this.style.opacity = '0.5';
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        if (this !== draggedElement && this.dataset.src) {
+            this.style.border = '2px dashed #555';
+        }
+        return false;
+    }
+
+    function handleDrop(e) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+        if (draggedElement !== this && this.dataset.src && draggedElement.dataset.src) {
+            const draggedIndex = parseInt(draggedElement.dataset.index);
+            const targetIndex = parseInt(this.dataset.index);
+            
+            // Перемещаем элемент в массиве
+            const item = currentGallery.splice(draggedIndex, 1)[0];
+            currentGallery.splice(targetIndex, 0, item);
+            
+            renderGalleryList();
+            document.getElementById('saveOrderBtn').style.display = 'block';
+        }
+        return false;
+    }
+
+    function handleDragEnd(e) {
+        const items = document.querySelectorAll('#galleryList > div');
+        items.forEach(item => {
+            item.style.opacity = '1';
+            item.style.border = '';
+        });
+        draggedElement = null;
+    }
+
+    async function saveOrder() {
+        const order = currentGallery.map(item => item.src);
+        const deleteMsg = document.getElementById('deleteMsg');
+        deleteMsg.textContent = 'Сохранение...';
+        try {
+            const res = await fetch('/reorder-gallery', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({order: order}),
+                credentials: 'same-origin'
+            });
+            const json = await res.json();
+            if (json.success) {
+                deleteMsg.textContent = '✓ Порядок сохранен';
+                document.getElementById('saveOrderBtn').style.display = 'none';
+                loadGalleryList();
+            } else {
+                deleteMsg.textContent = '✗ ' + (json.error || 'Ошибка сохранения');
+            }
+        } catch (err) {
+            deleteMsg.textContent = '✗ Ошибка соединения';
+        }
+    }
+
+    async function updateCaption(src, caption) {
+        try {
+            const res = await fetch('/update-caption', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({src: src, caption: caption}),
+                credentials: 'same-origin'
+            });
+            const json = await res.json();
+            if (json.success) {
+                // Обновляем локальный массив
+                const item = currentGallery.find(i => i.src === src);
+                if (item) {
+                    item.caption = caption;
+                }
+            }
+        } catch (err) {
+            console.error('Ошибка обновления подписи:', err);
+        }
+    }
+
+    async function deleteItem(src, index) {
+        if (!confirm('Удалить это изображение?')) return;
+        const deleteMsg = document.getElementById('deleteMsg');
+        deleteMsg.textContent = 'Удаление...';
+        try {
+            const res = await fetch('/delete-item', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({src: src}),
+                credentials: 'same-origin'
+            });
+            const json = await res.json();
+            if (json.success) {
+                deleteMsg.textContent = '✓ Удалено';
+                loadGalleryList();
+            } else {
+                deleteMsg.textContent = '✗ ' + (json.error || 'Ошибка удаления');
+            }
+        } catch (err) {
+            deleteMsg.textContent = '✗ Ошибка соединения';
+        }
+    }
+
+    async function shuffleGallery() {
+        if (!confirm('Перемешать все изображения в случайном порядке?')) return;
+        const deleteMsg = document.getElementById('deleteMsg');
+        deleteMsg.textContent = 'Перемешивание...';
+        try {
+            const res = await fetch('/shuffle-gallery', {
+                method: 'POST',
+                credentials: 'same-origin'
+            });
+            const json = await res.json();
+            if (json.success) {
+                deleteMsg.textContent = '✓ Галерея перемешана';
+                loadGalleryList();
+            } else {
+                deleteMsg.textContent = '✗ ' + (json.error || 'Ошибка перемешивания');
+            }
+        } catch (err) {
+            deleteMsg.textContent = '✗ Ошибка соединения';
+        }
+    }
+
+    function findDuplicates() {
+        const filenameCounts = {};
+        const duplicates = new Set();
+        
+        // Подсчитываем количество каждого имени файла
+        currentGallery.forEach(item => {
+            const filename = item.src.split('/').pop();
+            if (filenameCounts[filename]) {
+                filenameCounts[filename]++;
+                duplicates.add(filename);
+            } else {
+                filenameCounts[filename] = 1;
+            }
+        });
+        
+        duplicateFiles = duplicates;
+        
+        // Показываем информацию о дубликатах
+        const duplicatesInfo = document.getElementById('duplicatesInfo');
+        const duplicatesText = document.getElementById('duplicatesText');
+        
+        if (duplicates.size > 0) {
+            const duplicateList = Array.from(duplicates).map(name => {
+                const count = filenameCounts[name];
+                return `${name} (${count} раз)`;
+            }).join(', ');
+            duplicatesText.textContent = `Найдено дубликатов: ${duplicates.size}. Файлы: ${duplicateList}`;
+            duplicatesInfo.style.display = 'block';
+        } else {
+            duplicatesText.textContent = 'Дубликаты не найдены';
+            duplicatesInfo.style.display = 'block';
+            duplicatesInfo.style.background = '#131';
+        }
+        
+        // Перерисовываем список с выделением дубликатов
+        renderGalleryList();
+    }
+
+    document.getElementById('refreshBtn').onclick = loadGalleryList;
+    document.getElementById('saveOrderBtn').onclick = saveOrder;
+    document.getElementById('shuffleBtn').onclick = shuffleGallery;
+    document.getElementById('findDuplicatesBtn').onclick = findDuplicates;
+    
+    // Загружаем список при открытии страницы
+    loadGalleryList();
+    </script>
+</body>
+</html> 
