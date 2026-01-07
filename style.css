@@ -1,12 +1,5 @@
 /* Main Stylesheet */
 
-@font-face {
-  font-family: 'Sirotica';
-  src: url('Sirotica-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
 #preloader {
   position: fixed;
   top: 0;
@@ -22,7 +15,7 @@
 }
 
 #preloader-percent {
-  font-family: 'Sirotica', sans-serif;
+  font-family: 'Neue Haas Unica W1G', sans-serif;
   font-size: 16px;
   line-height: 1;
   color: #000;
@@ -124,12 +117,45 @@ img {
   line-height: 1.4;
 }
 
+.bottom-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 0 4px 4px 4px;
+  margin-top: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bottom-buttons a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 640px;
+  background: #000;
+  color: #fff;
+  text-decoration: none;
+  font-size: 64px;
+  font-family: 'Neue Haas Unica W1G', sans-serif;
+  border-radius: 120px;
+  transition: background 0.3s ease;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.bottom-buttons a:hover {
+  background: #fc0;
+  color: black;
+  text-decoration: none;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .header {
       grid-template-columns: 1fr;
       padding: 10px;
       row-gap: 1rem;
+      font-size: 14px;
   }
 
   .header div {
@@ -149,6 +175,14 @@ img {
       margin-bottom: 0.5rem;
   }
 
+  .contact span {
+      margin-top: 0.5rem;
+  }
+
+  .contact span.section-spacing {
+      margin-top: 0;
+  }
+
   .contact a {
       display: block;
       padding: 0;
@@ -158,5 +192,17 @@ img {
   .gallery {
       column-count: 2;
       padding: 0;
+  }
+
+  .bottom-buttons {
+      grid-template-columns: 1fr;
+      padding: 0 4px 4px 4px;
+      gap: 4px;
+  }
+
+  .bottom-buttons a {
+      height: 320px;
+      font-size: 32px;
+      border-radius: 64px;
   }
 }
