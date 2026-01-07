@@ -53,6 +53,10 @@ video {
   font-size: 24px;
 }
 
+.header-container {
+  margin: 16px 4px;
+}
+
 .header {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
@@ -62,7 +66,6 @@ video {
 }
 
 .header div {
-  padding-left: 4px;
   padding-right: 32px;
 }
 
@@ -84,6 +87,23 @@ video {
 
 .header div .section-title.section-spacing {
   margin-top: 1.2em;
+}
+
+.contact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.contact > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.contact a {
+  display: block;
+  padding: 0;
+  break-inside: avoid;
 }
 
 img {
@@ -151,9 +171,12 @@ img {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .header-container {
+      margin: 10px;
+  }
+
   .header {
       grid-template-columns: 1fr;
-      padding: 10px;
       row-gap: 1rem;
       font-size: 14px;
   }
@@ -165,28 +188,12 @@ img {
   }
 
   .contact {
-      column-count: 2;
-      column-gap: 1rem;
-  }
-
-  .contact > u {
-      column-span: all;
-      display: block;
-      margin-bottom: 0.5rem;
-  }
-
-  .contact span {
-      margin-top: 0.5rem;
-  }
-
-  .contact span.section-spacing {
-      margin-top: 0;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
   }
 
   .contact a {
-      display: block;
-      padding: 0;
-      break-inside: avoid;
+    margin-top: 12px;
   }
 
   .gallery {
