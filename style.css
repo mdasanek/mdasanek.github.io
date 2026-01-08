@@ -53,6 +53,12 @@ video {
   font-size: 24px;
 }
 
+.header-image {
+  width: 100%;
+  display: block;
+  margin: 16px 0 0 0;
+}
+
 .header-container {
   margin: 16px 4px;
 }
@@ -170,22 +176,18 @@ img {
 }
 
 /* Responsive Design */
-@media (min-width: 1440px) {
-  .header-container {
-      max-width: 1440px;
-      margin: 16px auto;
-      padding: 0 4px;
+@media (min-width: 1490px) {
+  .header-image {
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+  }
+
+  .header {
+      padding: 0 32px;
   }
 
   body {
-      font-size: 12px;
-  }
-
-  .header div {
-      padding-right: 48px;
-  }
-
-  .block p {
       font-size: 12px;
   }
 }
