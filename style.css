@@ -170,6 +170,26 @@ img {
 }
 
 /* Responsive Design */
+@media (min-width: 1440px) {
+  .header-container {
+      max-width: 1440px;
+      margin: 16px auto;
+      padding: 0 4px;
+  }
+
+  body {
+      font-size: 12px;
+  }
+
+  .header div {
+      padding-right: 48px;
+  }
+
+  .block p {
+      font-size: 12px;
+  }
+}
+
 @media (max-width: 768px) {
   .header-container {
       margin: 10px;
