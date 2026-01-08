@@ -255,6 +255,34 @@
             // Запускаем проверку прогресса
             setTimeout(ensureProgressTo100, MIN_DISPLAY_TIME * 0.8);
             
+            // Функция для предзагрузки размеров изображения
+            const preloadImageDimensions = (src) => {
+                return new Promise((resolve) => {
+                    const tempImg = new Image();
+                    tempImg.onload = () => {
+                        resolve({ width: tempImg.naturalWidth, height: tempImg.naturalHeight });
+                    };
+                    tempImg.onerror = () => {
+                        // Если не удалось загрузить, используем дефолтное соотношение
+                        resolve({ width: 1, height: 1 });
+                    };
+                    tempImg.src = src;
+                });
+            };
+            
+            // Предзагружаем размеры всех lazy изображений заранее
+            const imageDimensions = new Map();
+            const lazyItems = galleryItems.slice(PRIORITY_COUNT).filter(item => {
+                const isVideo = item.type === 'video' || /\.(mp4|webm)$/i.test(item.src);
+                return !isVideo;
+            });
+            
+            // Предзагружаем размеры параллельно
+            await Promise.all(lazyItems.map(async (item) => {
+                const dimensions = await preloadImageDimensions(item.src);
+                imageDimensions.set(item.src, dimensions);
+            }));
+            
             galleryItems.forEach((item, index) => {
                 const isPriority = index < PRIORITY_COUNT;
                 const isVideo = item.type === 'video' || /\.(mp4|webm)$/i.test(item.src);
@@ -288,6 +316,13 @@
                         }, 0);
                     } else {
                         const img = document.createElement('img');
+                        // Используем предзагруженные размеры для резервирования места
+                        if (!isPriority) {
+                            const dimensions = imageDimensions.get(item.src);
+                            if (dimensions && dimensions.width > 0 && dimensions.height > 0) {
+                                img.style.aspectRatio = `${dimensions.width} / ${dimensions.height}`;
+                            }
+                        }
                         // Приоритетные изображения загружаем без lazy loading
                         if (isPriority) {
                             img.loading = 'eager';
@@ -343,6 +378,13 @@
                         }, 0);
                     } else {
                         const img = document.createElement('img');
+                        // Используем предзагруженные размеры для резервирования места
+                        if (!isPriority) {
+                            const dimensions = imageDimensions.get(item.src);
+                            if (dimensions && dimensions.width > 0 && dimensions.height > 0) {
+                                img.style.aspectRatio = `${dimensions.width} / ${dimensions.height}`;
+                            }
+                        }
                         // Приоритетные изображения загружаем без lazy loading
                         if (isPriority) {
                             img.loading = 'eager';
