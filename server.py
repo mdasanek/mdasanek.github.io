@@ -11,6 +11,8 @@ import json
 import subprocess
 from functools import wraps
 
+from update_gallery_assets import update_gallery, DEFAULT_OUTPUT_DIR, DEFAULT_SIZES
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
 app.config['UPLOAD_FOLDER'] = 'w'
@@ -35,6 +37,13 @@ def load_gallery():
 def save_gallery(gallery):
     with open('gallery.json', 'w', encoding='utf-8') as f:
         json.dump(gallery, f, ensure_ascii=False, indent=2)
+
+
+def sync_gallery_assets():
+    try:
+        update_gallery('gallery.json', DEFAULT_SIZES, DEFAULT_OUTPUT_DIR)
+    except Exception as e:
+        print(f"Failed to update gallery assets: {e}")
 
 def login_required(f):
     @wraps(f)
@@ -110,6 +119,7 @@ def upload():
         else:
             responses.append({'file': file.filename, 'success': False, 'error': 'Invalid file'})
     save_gallery(gallery)
+    sync_gallery_assets()
     return jsonify({'results': responses})
 
 @login_required
@@ -127,6 +137,7 @@ def delete_item():
     gallery = load_gallery()
     gallery = [item for item in gallery if item.get('src') != src]
     save_gallery(gallery)
+    sync_gallery_assets()
     return jsonify({'success': True})
 
 @login_required

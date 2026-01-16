@@ -54,22 +54,18 @@
             <span>KCM — Editorial Design & UI/UX</span>
             <span>Hartung — Editorial Designer</span>
 
-            <u class="section-title section-spacing">School</u>
+        </div>
+        <div class="projects">
+            <u class="section-title">School</u>
             <span><a href="https://portfolio.hse.ru/Student/16272" target="_blank" rel="noopener">MS — HSE ART AND DESIGN — Art Direction</a></span>
             <span>BA — RSHU — Icon Painting</span>
             <span>DesignWorkout — Offline Workshop</span>
             <span>DesignWorkout — Online Course</span>
             <span>desgraf — Offline Course</span>
-        </div>
-        <div class="projects">
-            <u class="section-title">Edu & Pet Projects</u>
+
+            <u class="section-title section-spacing">Edu & Pet Projects</u>
             <span><a href="https://mdasanek.github.io/KIS/index.html">KIS — Design Course for Beginners</a></span>
             <span>Henrik M — Digitize Armenian Typefaces</span>
-
-            <u class="section-title section-spacing">Publications</u>
-            <span><a href="https://abduzeedo.com/a19-building-bold-startup-branding-and-visual-identity" target="_blank" rel="noopener">Abduzeedo</a></span>
-            <span><a href="https://packagingoftheworld.com/2021/06/yhtys-typography-beer-package.html" target="_blank" rel="noopener">POTW</a></span>
-            <span><a href="https://worldbranddesign.com/student-sasha-korshenyuk-created-identity-for-consumersim-exhibition/" target="_blank" rel="noopener">WBDS</a></span>
 
             <u class="section-title section-spacing">Exhibitons & Events</u>
             <span><a href="https://yahall.am/" target="_blank" rel="noopener">Yandex Office Opening, Yerevan</a></span>
@@ -88,6 +84,11 @@
             <span><a href="https://festivalsreda.ru/" target="_blank" rel="noopener">Sreda — Avito Design Team — Bronze</a></span>
             <span><a href="https://festivalsreda.ru/" target="_blank" rel="noopener">Sreda — YHTYS — Shortlist</a></span>
             <span><a href="https://dafes.net/project/2398152a1bf94f0b853ed444b15335f1" target="_blank" rel="noopener">DAFES — KIS: Education Course — Shortlist</a></span>
+
+            <u class="section-title section-spacing">Publications</u>
+            <span><a href="https://abduzeedo.com/a19-building-bold-startup-branding-and-visual-identity" target="_blank" rel="noopener">Abduzeedo</a></span>
+            <span><a href="https://packagingoftheworld.com/2021/06/yhtys-typography-beer-package.html" target="_blank" rel="noopener">POTW</a></span>
+            <span><a href="https://worldbranddesign.com/student-sasha-korshenyuk-created-identity-for-consumersim-exhibition/" target="_blank" rel="noopener">WBDS</a></span>
         </div>
         <div>
             <u class="section-title">Contacts</u>
@@ -151,7 +152,7 @@
             }
             
             // Определяем количество приоритетных изображений (первые, которые загружаем без lazy)
-            const PRIORITY_COUNT = Math.min(40, totalItems);
+            const PRIORITY_COUNT = Math.min(25, totalItems);
             const startTime = Date.now();
             const MIN_DISPLAY_TIME = 1500; // Минимум 1.5 секунды показа прелоадера
             
@@ -250,34 +251,6 @@
             // Запускаем проверку прогресса
             setTimeout(ensureProgressTo100, MIN_DISPLAY_TIME * 0.8);
             
-            // Функция для предзагрузки размеров изображения
-            const preloadImageDimensions = (src) => {
-                return new Promise((resolve) => {
-                    const tempImg = new Image();
-                    tempImg.onload = () => {
-                        resolve({ width: tempImg.naturalWidth, height: tempImg.naturalHeight });
-                    };
-                    tempImg.onerror = () => {
-                        // Если не удалось загрузить, используем дефолтное соотношение
-                        resolve({ width: 1, height: 1 });
-                    };
-                    tempImg.src = src;
-                });
-            };
-            
-            // Предзагружаем размеры всех lazy изображений заранее
-            const imageDimensions = new Map();
-            const lazyItems = galleryItems.slice(PRIORITY_COUNT).filter(item => {
-                const isVideo = item.type === 'video' || /\.(mp4|webm)$/i.test(item.src);
-                return !isVideo;
-            });
-            
-            // Предзагружаем размеры параллельно
-            await Promise.all(lazyItems.map(async (item) => {
-                const dimensions = await preloadImageDimensions(item.src);
-                imageDimensions.set(item.src, dimensions);
-            }));
-            
             galleryItems.forEach((item, index) => {
                 const isPriority = index < PRIORITY_COUNT;
                 const isVideo = item.type === 'video' || /\.(mp4|webm)$/i.test(item.src);
@@ -311,12 +284,9 @@
                         }, 0);
                     } else {
                         const img = document.createElement('img');
-                        // Используем предзагруженные размеры для резервирования места
-                        if (!isPriority) {
-                            const dimensions = imageDimensions.get(item.src);
-                            if (dimensions && dimensions.width > 0 && dimensions.height > 0) {
-                                img.style.aspectRatio = `${dimensions.width} / ${dimensions.height}`;
-                            }
+                        // Используем размеры из gallery.json для резервирования места
+                        if (!isPriority && item.width && item.height) {
+                            img.style.aspectRatio = `${item.width} / ${item.height}`;
                         }
                         // Приоритетные изображения загружаем без lazy loading
                         if (isPriority) {
@@ -324,7 +294,12 @@
                         } else {
                             img.loading = 'lazy';
                         }
-                        img.src = item.src;
+                        img.src = item.preview || item.src;
+                        if (item.srcset) {
+                            img.srcset = item.srcset;
+                            img.sizes = '(max-width: 768px) 50vw, 20vw';
+                        }
+                        img.dataset.fullSrc = item.src;
                         img.alt = item.caption;
                         div.appendChild(img);
                         
@@ -373,12 +348,9 @@
                         }, 0);
                     } else {
                         const img = document.createElement('img');
-                        // Используем предзагруженные размеры для резервирования места
-                        if (!isPriority) {
-                            const dimensions = imageDimensions.get(item.src);
-                            if (dimensions && dimensions.width > 0 && dimensions.height > 0) {
-                                img.style.aspectRatio = `${dimensions.width} / ${dimensions.height}`;
-                            }
+                        // Используем размеры из gallery.json для резервирования места
+                        if (!isPriority && item.width && item.height) {
+                            img.style.aspectRatio = `${item.width} / ${item.height}`;
                         }
                         // Приоритетные изображения загружаем без lazy loading
                         if (isPriority) {
@@ -386,7 +358,12 @@
                         } else {
                             img.loading = 'lazy';
                         }
-                        img.src = item.src;
+                        img.src = item.preview || item.src;
+                        if (item.srcset) {
+                            img.srcset = item.srcset;
+                            img.sizes = '(max-width: 768px) 50vw, 20vw';
+                        }
+                        img.dataset.fullSrc = item.src;
                         img.alt = '';
                         gallery.appendChild(img);
                         
@@ -497,10 +474,10 @@
             let isVideo = false;
             
             if (target.tagName === 'IMG' && target.parentElement.classList.contains('block')) {
-                src = target.src;
+                src = target.dataset.fullSrc || target.src;
                 caption = target.parentElement.querySelector('p')?.textContent || '';
             } else if (target.tagName === 'IMG') {
-                src = target.src;
+                src = target.dataset.fullSrc || target.src;
                 caption = '';
             } else if (target.tagName === 'VIDEO' && target.parentElement.classList.contains('block')) {
                 src = target.src;
